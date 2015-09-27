@@ -8,7 +8,7 @@
 
 
 class Deck
-  attr_accessor :cards
+  attr_accessor :cards, :top_card
   
   def initialize
     @cards = []
@@ -26,9 +26,8 @@ class Deck
 
   end
 
-  def deal_card
-    this_card = cards.pop
-    puts this_card
+  def top_card
+    cards.pop
   end
 
   def size
@@ -55,82 +54,157 @@ class Card
 
 end
 
-deck = Deck.new
-puts deck.cards.size
-deck.deal_card
-puts deck.cards.size
+module Hand
+  attr_accessor :cards, :total
 
-# class Hand
-#   attr_accessor :cards
+  def show_hand
+    puts "----- #{name}'s Hand -----"
+    cards.each do |card|
+      puts "=> #{card}"
+    end
+    puts "=> Total: #{total}"
+  end
 
-#   def inititalize
-#     @cards = []
-#   end
+  def deal_card(new_card)
+    cards << new_card
+  end
 
-#   def score
-#     arr = @cards.map{|e| e[1]}
+  def total
+    arr = cards.map{|e| e.value}
 
-#     total = 0
-#     arr.each do |value|
-#       if value == "Ace"
-#         total += 11
-#       elsif value.to_i == 0
-#         total += 10
-#       else
-#         total += value.to_i
-#       end
-#     end
+    total = 0
+    arr.each do |value|
+      if value == "Ace"
+        total += 11
+      elsif value.to_i == 0
+        total += 10
+      else
+        total += value.to_i
+      end
+    end
 
-#     arr.select{|e| e == "Ace"}.count.times do
-#       if total > 21
-#         total -= 10
-#       end
-#     end
+    arr.select{|e| e == "Ace"}.count.times do
+      if total > 21
+        total -= 10
+      end
+    end
 
-#     total
+    total
 
-#   end
+  end
 
-# end
+end
 
+class Player
+  include Hand
 
-# Player
-#   hand = Hand.new
-#   score
+  attr_accessor :name, :cards
 
+  def initialize(n)
+    @name = n
+    @cards = []
+  end
 
-# Dealer
-#   hand = Hand.new
-#   score = hand.score
-
-
-# Hand
-#   initialize
-#   cards = []
-#   deal_card * 2
-
-#   score
-
-#   display
+end
 
 
-# Game 
+class Dealer < Player
+end
 
-#   play
-#     deck = Deck.new
-#     Player.hand.display
-#     Dealer.hand.display
-#     Player move (hit)
-#     Dealer move (stay)
+class Game
 
+  def initialize
+    @deck = Deck.new
+    @player = Player.new(" ")
+    @dealer = Dealer.new("Dealer")
+    @stay = false
 
-#     Hit
-#       deal a card
-#       add to player score
-#       dislay hand
+  end
 
-#     Stay
-#       deal a card
-#       add to dealer score
-#       display hand
+  def get_name
+    @player.name = gets.chomp
+  end
 
+  def start
+    puts "Welcome to Blackjack! What's your name?"
+    get_name
+    puts "Dealing cards..."
+    @dealer.deal_card(@deck.top_card)
+    @dealer.deal_card(@deck.top_card)
+    @player.deal_card(@deck.top_card)
+    @player.deal_card(@deck.top_card)
+    @dealer.show_hand
+    @player.show_hand
+  end
+
+  def hit_or_stay
+
+      begin
+        puts "Hit or Stay? Enter 'h' or 's'."
+        choice = gets.chomp
+      end until choice.downcase == 'h' || choice.downcase == 's'
+      if choice.downcase == 'h'
+        hit
+      elsif choice.downcase == 's'
+        stay
+      end
+ 
+  end
+
+  def hit
+    @player.deal_card(@deck.top_card)
+    @player.show_hand
+  end
+
+  def stay
+    begin
+      @dealer.deal_card(@deck.top_card)
+      @dealer.show_hand
+    end until @dealer.total > 17
+    @stay = true
+  end
+
+  def winner?
+    if @player.total == 21 || @dealer.total == 21 || @player.total > 21 || @dealer.total > 21
+      return true
+    else
+      return false
+    end
+  end
+
+  def winning_msg
+
+    if @player.total == 21 && @dealer.total == 21
+      puts "#{@player.name} and dealer are tied!"
+    elsif @player.total > 21
+      puts "#{@player.name} busts! Dealer wins!"
+    elsif @player.total == 21
+      puts "#{@player.name} has 21! #{@player.name} wins!"
+    elsif @dealer.total == 21
+      puts "Dealer has 21! Dealer wins!" 
+    elsif @dealer.total > 21
+      puts "Dealer busts! #{@player.name} wins!"
+    elsif @player.total > @dealer.total
+      puts "#{@player.name} has higher total than dealer. #{@player.name} wins!"
+    elsif @player.total < @dealer.total
+      puts "Dealer has higher total than #{@player.name}. Dealer wins!"
+    elsif @player.total == @dealer.total
+      puts "It's a tie!"  
+    end
+
+  end
+
+  def play
+
+    start
+    begin
+      if winner? == false
+        hit_or_stay
+      end
+    end until winner? == true || @stay == true
+    winning_msg
+  end
+
+end
+
+Game.new.play
