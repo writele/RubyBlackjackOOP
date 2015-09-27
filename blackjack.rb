@@ -1,11 +1,3 @@
-#Blackjack is a card game with a Dealer and Players. The Dealer deals two cards to themselves and the player. The Dealer's top card is hidden. 
-#If the Player or Dealer has a face card and an ace, they automatically win.
-#Aces are worth 1 or 11. If value goes over 21, aces are changed to value of 1.
-#The Player chooses to Hit or Stay. Hit, the dealer deals a card. Stay, the turn moves to the Dealer.
-#A player busts (loses) if their cards > 21. The player wins if the cards == 21.
-#The dealer deals themselves a card until they reach the value of 17. If the cards == 21, Dealer wins. If cards > 21, Dealer busts, Player wins.
-#If neither Dealer or Player has won or lost, the hand with the greater value wins.
-
 
 class Deck
   attr_accessor :cards, :top_card
@@ -84,7 +76,7 @@ module Hand
     end
 
     arr.select{|e| e == "Ace"}.count.times do
-      if total > 21
+      if total > Game::BLACKJACK_AMOUNT
         total -= 10
       end
     end
@@ -93,79 +85,122 @@ module Hand
 
   end
 
+  def bust?
+    if total > Game::BLACKJACK_AMOUNT
+      return true
+    else
+      return false
+    end
+  end
+
+  def blackjack?
+    if total == Game::BLACKJACK_AMOUNT
+      return true
+    else
+      return false
+    end
+  end
+
 end
 
 class Player
   include Hand
 
-  attr_accessor :name, :cards
+  attr_accessor :name, :cards, :money, :bet
 
   def initialize(n)
     @name = n
     @cards = []
+    @money = 100
+    @bet = 0
   end
 
 end
 
 
 class Dealer < Player
+
+  def show_flop
+    puts "----- #{name}'s Hand -----"
+    puts "=> #{cards[0]}"
+    puts "=> Hidden Card"
+  end
+
 end
 
 class Game
+  attr_accessor :deck, :player, :dealer, :end_game
+
+  BLACKJACK_AMOUNT = 21
+  DEALER_HIT_MIN = 17
 
   def initialize
     @deck = Deck.new
     @player = Player.new(" ")
     @dealer = Dealer.new("Dealer")
-    @stay = false
+    @end_game = false
 
   end
 
   def get_name
-    @player.name = gets.chomp
+    puts "Welcome to Blackjack! What's your name?"
+    player.name = gets.chomp
+  end
+
+  def place_bet
+    begin
+      puts "How much you wanna bet on this round? You currently have $#{player.money}"
+      player.bet = gets.chomp.to_i
+    end until player.bet != 0 && player.bet <= player.money
   end
 
   def start
-    puts "Welcome to Blackjack! What's your name?"
-    get_name
     puts "Dealing cards..."
-    @dealer.deal_card(@deck.top_card)
-    @dealer.deal_card(@deck.top_card)
-    @player.deal_card(@deck.top_card)
-    @player.deal_card(@deck.top_card)
-    @dealer.show_hand
-    @player.show_hand
+    deal_cards
+    show_hands
+  end
+
+  def deal_cards
+    dealer.deal_card(deck.top_card)
+    dealer.deal_card(deck.top_card)
+    player.deal_card(deck.top_card)
+    player.deal_card(deck.top_card)
+  end
+
+  def show_hands
+    dealer.show_flop
+    player.show_hand
   end
 
   def hit_or_stay
-
-      begin
-        puts "Hit or Stay? Enter 'h' or 's'."
-        choice = gets.chomp
-      end until choice.downcase == 'h' || choice.downcase == 's'
-      if choice.downcase == 'h'
-        hit
-      elsif choice.downcase == 's'
-        stay
-      end
- 
+    begin
+      puts "Hit or Stay? Enter 'h' or 's'."
+      choice = gets.chomp
+    end until choice.downcase == 'h' || choice.downcase == 's'
+    if choice.downcase == 'h'
+      hit
+    elsif choice.downcase == 's'
+      stay
+    end
   end
 
   def hit
-    @player.deal_card(@deck.top_card)
-    @player.show_hand
+    player.deal_card(@deck.top_card)
+    player.show_hand
   end
 
   def stay
-    begin
-      @dealer.deal_card(@deck.top_card)
-      @dealer.show_hand
-    end until @dealer.total > 17
-    @stay = true
+    puts "Dealer's turn. Dealing cards..."
+    dealer.show_hand
+    while dealer.total < DEALER_HIT_MIN
+      dealer.deal_card(deck.top_card)
+      dealer.show_hand
+    end
+    @end_game = true
   end
 
   def winner?
-    if @player.total == 21 || @dealer.total == 21 || @player.total > 21 || @dealer.total > 21
+    if player.bust? || dealer.bust? || player.blackjack? || dealer.blackjack?
       return true
     else
       return false
@@ -173,36 +208,68 @@ class Game
   end
 
   def winning_msg
-
-    if @player.total == 21 && @dealer.total == 21
-      puts "#{@player.name} and dealer are tied!"
-    elsif @player.total > 21
-      puts "#{@player.name} busts! Dealer wins!"
-    elsif @player.total == 21
-      puts "#{@player.name} has 21! #{@player.name} wins!"
-    elsif @dealer.total == 21
-      puts "Dealer has 21! Dealer wins!" 
-    elsif @dealer.total > 21
-      puts "Dealer busts! #{@player.name} wins!"
-    elsif @player.total > @dealer.total
-      puts "#{@player.name} has higher total than dealer. #{@player.name} wins!"
-    elsif @player.total < @dealer.total
-      puts "Dealer has higher total than #{@player.name}. Dealer wins!"
-    elsif @player.total == @dealer.total
+    if player.blackjack? && dealer.blackjack?
+      puts "#{player.name} and dealer are tied!"
+    elsif player.bust?
+      puts "#{player.name} busts! Dealer wins!"
+      player.money -= player.bet
+    elsif player.blackjack?
+      puts "#{player.name} has #{BLACKJACK_AMOUNT.to_s}! #{player.name} wins!"
+      player.money += player.bet
+    elsif dealer.blackjack?
+      puts "Dealer has #{BLACKJACK_AMOUNT.to_s}! Dealer wins!"
+      player.money -= player.bet 
+    elsif dealer.bust?
+      puts "Dealer busts! #{player.name} wins!"
+      player.money += player.bet
+    elsif player.total > dealer.total
+      puts "#{player.name} has higher total than dealer. #{player.name} wins!"
+      player.money += player.bet
+    elsif player.total < dealer.total
+      puts "Dealer has higher total than #{player.name}. Dealer wins!"
+      player.money -= player.bet
+    elsif player.total == dealer.total
       puts "It's a tie!"  
     end
-
   end
 
-  def play
-
+  def new_game
+    place_bet
     start
     begin
       if winner? == false
         hit_or_stay
       end
-    end until winner? == true || @stay == true
+    end until winner? == true || @end_game == true
     winning_msg
+    play_again?
+  end
+
+  def play_again?
+    puts "Play again? Enter 'y' for 'yes' or 'n' for 'no'."
+    choice = gets.chomp
+    if choice.downcase == 'y'
+      if player.money <= 0 
+        puts "Sorry, you've run out of money! Bye!"
+        exit
+      else
+        deck = Deck.new
+        player.cards = []
+        dealer.cards =[]
+        @end_game = false
+        puts ""
+        puts "Starting new game..."
+        new_game
+      end
+    else
+      puts "Thanks for playing! You're leaving with $#{player.money}."
+      exit
+    end
+  end
+
+  def play
+    get_name
+    new_game
   end
 
 end
